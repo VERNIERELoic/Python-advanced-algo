@@ -4,7 +4,6 @@ from fileinput import filename
 import os
 import random as rand
 import csv
-from tenacity import t
 import copy
 from GeneticTSPGui import PVC_Genetique_GUI
 
