@@ -6,7 +6,7 @@ import random as rand
 import csv
 from tenacity import t
 import copy
-from  GeneticTSPGui import PVC_Genetique_GUI
+from GeneticTSPGui import PVC_Genetique_GUI
 
 
 class PVC_Genetique:
@@ -19,7 +19,7 @@ class PVC_Genetique:
         self.gui = PVC_Genetique_GUI(self.list_villes)
         self.mut_proba = 0.75
 
-    def croiser(self,parent1, parent2):
+    def croiser(self, parent1, parent2):
         villes1 = parent1.villes
         villes2 = parent2.villes
         half = len(villes1)//2
@@ -43,7 +43,7 @@ class PVC_Genetique:
 
     def selectionner(self, population):
         # Utilisation des operateur magique
-        return sorted(population.list_trajet[::])[::5]
+        return sorted(population.list_trajet[::])[::10]
 
     def evoluer(self, population):
         selection = self.selectionner(population)
@@ -53,7 +53,8 @@ class PVC_Genetique:
                 population.ajouter(self.muter(selection[i]))
             else:
                 if len(selection_cp) != (i+1):
-                    population.ajouter(self.croiser(selection_cp[i], selection_cp[i+1]))
+                    population.ajouter(self.croiser(
+                        selection_cp[i], selection_cp[i+1]))
                 else:
                     population.ajouter(self.muter(selection_cp[i]))
 
@@ -62,13 +63,13 @@ class PVC_Genetique:
     def executer(self, afficher):
         population = Population()
         population.initialiser(self.taille_population, self.list_villes)
-        global_meilleur = population.meilleur()
+        global_meilleur = copy.deepcopy(population.meilleur())
         for i in range(self.nbr_generation):
             population = self.evoluer(population)
 
             actu_meilleur = population.meilleur()
             if actu_meilleur < global_meilleur:
-                global_meilleur = actu_meilleur
+                global_meilleur = copy.deepcopy(actu_meilleur)
 
             if afficher == True:
                 self.gui.afficher(global_meilleur, actu_meilleur)
