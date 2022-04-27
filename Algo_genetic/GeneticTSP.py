@@ -1,11 +1,12 @@
-from cmath import sqrt
+from math import sqrt
 from curses.ascii import NUL
 from fileinput import filename
 import os
 import random as rand
 import csv
-from cv2 import sqrBoxFilter
 from tenacity import t
+import copy
+import GeneticTSPGui
 
 
 class PVC_Genetique:
@@ -15,55 +16,62 @@ class PVC_Genetique:
         self.taille_population = taille_population
         self.nbr_generation = nbr_generation
         self.elitisme = True
+        self.gui = GeneticTSPGui(self.list_villes)
         self.mut_proba = 0.3
 
     def croiser(self, parent1, parent2):
-        enfant = []
-        for i in range(len(parent1//2)):
-            tmp1 = parent1[i]
-            tmp2 = parent2[len(parent2)-i]
-
-        enfant.append(tmp1 + tmp2)
-
-        if len(set(enfant)) != len(enfant):
-            for i in range(len(set(enfant))):
-                if i not in set(enfant):
-                    set(enfant).add(i)
-        # set(enfant).add(set(enfant).difference(parent1))
+        m = len(parent1.villes) // 2
+        new_trajet = parent1.villes[:m] + parent2.villes[m:]
+        missing = []
+        if (len(set(new_trajet)) != new_trajet) and len(new_trajet) != len(self.list_villes):
+            for ville in range(len(self.list_villes)):
+                if ville.nom not in set(new_trajet).keys():
+                    missing.append(ville)
+        enfant = Trajet(new_trajet + missing)
+        enfant.calc_longueur()
         return enfant
 
     # Mutation : on prend un item a un index aleatoire, on le pop et insert a la fin
     def muter(self, trajet):
-        mutation = trajet.pop(rand.randint(0, len(self.list_villes)-2))
-        trajet.insert(mutation)
+        mutation = trajet.villes.pop(rand.randint(0, len(self.list_villes)-2))
+        trajet.villes.append(mutation)
         trajet.calc_longueur()
-        return mutation
+        return trajet
 
     def selectionner(self, population):
         # Utilisation des operateur magique
-        sorted(population.trajet)[:len(population.trajet)//2]
+        return sorted(population.list_trajet)[:len(population.list_trajet)//2]
 
     def evoluer(self, population):
-        selection = population.selectionner(population)
-        changed = []
+        selection = self.selectionner(population)
+        selection_cp = selection.copy()
         for i in range(len(selection)):
             if rand.randint(0, 100) < self.mut_proba*100:
-                changed.append(selection.croiser(
-                    population[i], population[i+1]))
+                population.ajouter(self.muter(selection[i]))
             else:
-                changed.append(self.muter(selection.trajet[i]))
+                if len(selection_cp) != (i+1):
+                    population.ajouter(self.croiser(
+                        selection_cp[i], selection_cp[i+1]))
+                else:
+                    population.ajouter(self.muter(selection_cp[i]))
 
-        return changed
+        return population
 
-    def executer(self):
-        actu_meilleur = 0
-        p = Population()
-        p.initialiser(len(p.list_trajet), self.list_villes)
-        actu_meilleur = p.list_trajet.meilleur()
+    def executer(self, afficher):
+        population = Population()
+        population.initialiser(self.taille_population, self.list_villes)
+        global_meilleur = population.meilleur()
         for i in range(self.nbr_generation):
-            self.evoluer(p)
-            if actu_meilleur > p.list_trajet[i].meilleur():
-                actu_meilleur = p.list_trajet[i].meilleur()
+            population = self.evoluer(population)
+            actu_meilleur = population.meilleur()
+            print("global_meilleur : ", global_meilleur)
+            if actu_meilleur < global_meilleur:
+                global_meilleur = actu_meilleur
+            print("actu_meilleur : ", actu_meilleur)
+
+            if afficher == True:
+                self.gui.afficher(global_meilleur, actu_meilleur)
+        self.gui.window.mainloop()
 
     def clear_term(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -76,7 +84,7 @@ class Ville:
         self.y = y
 
     def distance_vers(self, autre_ville):
-        return sqrt(self.x - autre_ville.x)**2 + sqrt(self.y - autre_ville.y)**2
+        return sqrt((self.x - autre_ville.x)**2 + (self.y - autre_ville.y)**2)
 
     def __str__(self):
         return str(self.nom)
@@ -99,27 +107,27 @@ def lire_csv(file_name):
 
 
 class Trajet:
-    def __init__(self, list_ville=None):
+    def __init__(self, list_ville):
         self.longueur = 0
         if list_ville is not None:
             self.villes = list_ville
-            self.trajet = []
-            for i in range(len(self.list)):
-                self.trajet.append(self.villes[rand(0, len(self.villes))])
+            self.trajet = list_ville.copy()
+            rand.shuffle(self.trajet)
 
     def calc_longueur(self):
         self.longueur = 0
         for i in range(len(self.villes) - 1):
+            # print(self.villes[i].distance_vers(self.villes[i+1]))
             self.longueur += self.villes[i].distance_vers(self.villes[i+1])
 
     def est_valide(self):
         for elem in self.villes:
             if self.villes.count(elem) > 1:
-                return True
-            return False
+                return False
+            return True
 
     def __str__(self):
-        return str(self.trajet_rand)
+        return "Trajet:" + str([str(v) for v in self.trajet])
 
     # Utilisation des operateurs magique pour le selectionner
     def __lt__(self, other):
@@ -141,15 +149,17 @@ class Population:
             t = Trajet(list_villes)
             t.calc_longueur()
             self.list_trajet.append(t)
+        # print(self.list_trajet)
 
     def ajouter(self, trajet):
         self.list_trajet.append(trajet)
 
     def meilleur(self):
+        min = self.list_trajet[0]
+        print("min", self.list_trajet[0].longueur)
         for i in range(len(self.list_trajet)):
-            if self.list_trajet[i.longueur] < min:
-                min = self.list_trajet[i.longueur]
-
+            if self.list_trajet[i].longueur < min.longueur:
+                min = self.list_trajet[i]
         return min
 
     def __str__(self):
@@ -158,9 +168,8 @@ class Population:
 
 def main():
     villes = generer_villes()
-    pvc = PVC_Genetique()
-    pvc.executer()
-    # print(villes[2])
+    pvc = PVC_Genetique(villes)
+    pvc.executer(True)
     return
 
 
