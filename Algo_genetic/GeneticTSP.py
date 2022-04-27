@@ -6,28 +6,31 @@ import random as rand
 import csv
 from tenacity import t
 import copy
-import GeneticTSPGui
+from  GeneticTSPGui import PVC_Genetique_GUI
 
 
 class PVC_Genetique:
 
-    def __init__(self, list_villes, taille_population=40, nbr_generation=100):
+    def __init__(self, list_villes, taille_population=15, nbr_generation=100):
         self.list_villes = list_villes
         self.taille_population = taille_population
         self.nbr_generation = nbr_generation
         self.elitisme = True
-        self.gui = GeneticTSPGui(self.list_villes)
-        self.mut_proba = 0.3
+        self.gui = PVC_Genetique_GUI(self.list_villes)
+        self.mut_proba = 0.75
 
-    def croiser(self, parent1, parent2):
-        m = len(parent1.villes) // 2
-        new_trajet = parent1.villes[:m] + parent2.villes[m:]
-        missing = []
-        if (len(set(new_trajet)) != new_trajet) and len(new_trajet) != len(self.list_villes):
-            for ville in range(len(self.list_villes)):
-                if ville.nom not in set(new_trajet).keys():
-                    missing.append(ville)
-        enfant = Trajet(new_trajet + missing)
+    def croiser(self,parent1, parent2):
+        villes1 = parent1.villes
+        villes2 = parent2.villes
+        half = len(villes1)//2
+        enfant = Trajet(villes1[:half] + villes2[half:])
+        if not enfant.est_valide():
+            enfant.villes = set(enfant.villes)
+            villes_manquantes = []
+            for ville in self.list_villes:
+                if ville.nom not in [loop_city.nom for loop_city in enfant.villes]:
+                    villes_manquantes.append(ville)
+            enfant = Trajet(list(enfant.villes) + villes_manquantes)
         enfant.calc_longueur()
         return enfant
 
@@ -40,7 +43,7 @@ class PVC_Genetique:
 
     def selectionner(self, population):
         # Utilisation des operateur magique
-        return sorted(population.list_trajet)[:len(population.list_trajet)//2]
+        return sorted(population.list_trajet[::])[::5]
 
     def evoluer(self, population):
         selection = self.selectionner(population)
@@ -50,8 +53,7 @@ class PVC_Genetique:
                 population.ajouter(self.muter(selection[i]))
             else:
                 if len(selection_cp) != (i+1):
-                    population.ajouter(self.croiser(
-                        selection_cp[i], selection_cp[i+1]))
+                    population.ajouter(self.croiser(selection_cp[i], selection_cp[i+1]))
                 else:
                     population.ajouter(self.muter(selection_cp[i]))
 
@@ -63,11 +65,10 @@ class PVC_Genetique:
         global_meilleur = population.meilleur()
         for i in range(self.nbr_generation):
             population = self.evoluer(population)
+
             actu_meilleur = population.meilleur()
-            print("global_meilleur : ", global_meilleur)
             if actu_meilleur < global_meilleur:
                 global_meilleur = actu_meilleur
-            print("actu_meilleur : ", actu_meilleur)
 
             if afficher == True:
                 self.gui.afficher(global_meilleur, actu_meilleur)
@@ -100,10 +101,12 @@ def generer_villes(nb_ville=20):
 
 
 def lire_csv(file_name):
-    with open(file_name) as file_obj:
-        reader_obj = csv.reader(file_obj)
-        for row in reader_obj:
-            print(row)
+    with open(file_name, 'r') as file:
+        reader = csv.reader(file)
+        villes = []
+        for row in reader:
+            villes.append(Ville(int(row[0]), int(row[1]), int(row[2])))
+        return villes
 
 
 class Trajet:
@@ -117,14 +120,14 @@ class Trajet:
     def calc_longueur(self):
         self.longueur = 0
         for i in range(len(self.villes) - 1):
-            # print(self.villes[i].distance_vers(self.villes[i+1]))
+            print(self.villes[i].distance_vers(self.villes[i+1]))
             self.longueur += self.villes[i].distance_vers(self.villes[i+1])
 
     def est_valide(self):
         for elem in self.villes:
             if self.villes.count(elem) > 1:
                 return False
-            return True
+        return True
 
     def __str__(self):
         return "Trajet:" + str([str(v) for v in self.trajet])
@@ -156,7 +159,6 @@ class Population:
 
     def meilleur(self):
         min = self.list_trajet[0]
-        print("min", self.list_trajet[0].longueur)
         for i in range(len(self.list_trajet)):
             if self.list_trajet[i].longueur < min.longueur:
                 min = self.list_trajet[i]
@@ -167,7 +169,7 @@ class Population:
 
 
 def main():
-    villes = generer_villes()
+    villes = lire_csv('30.csv')
     pvc = PVC_Genetique(villes)
     pvc.executer(True)
     return
