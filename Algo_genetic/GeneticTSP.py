@@ -16,7 +16,8 @@ class PVC_Genetique:
         self.nbr_generation = nbr_generation
         self.elitisme = True
         self.gui = PVC_Genetique_GUI(self.list_villes)
-        self.mut_proba = 0.75
+        self.mut_proba = 0.80 #j'ai augmenté la probalilité de mutation car meilleurs resultats
+
 
     def croiser(self, parent1, parent2):
         villes1 = parent1.villes
@@ -41,9 +42,12 @@ class PVC_Genetique:
         return trajet
 
     def selectionner(self, population):
-        # Utilisation des operateur magique
+        # Utilisation des operateur magique poour comparer les objects (voir classe Trajet)
+        #On selection les 10 meilleurs
         return sorted(population.list_trajet[::])[::10]
 
+    #Si le rand generé est < à la proba, alors on mute sinon on test si la selection esy differente
+    #de la selection + 1 et si oui alors on croise les population
     def evoluer(self, population):
         selection = self.selectionner(population)
         selection_cp = selection.copy()
@@ -60,12 +64,12 @@ class PVC_Genetique:
         return population
 
     def executer(self, afficher):
-        population = Population()
+        population = Population() 
         population.initialiser(self.taille_population, self.list_villes)
-        global_meilleur = copy.deepcopy(population.meilleur())
+        global_meilleur = copy.deepcopy(population.meilleur()) #insère dans l'objet composé des copies des objets trouvés dans l'objet original.
         for i in range(self.nbr_generation):
             population = self.evoluer(population)
-
+            print(population.meilleur().longueur, global_meilleur.longueur)
             actu_meilleur = population.meilleur()
             if actu_meilleur < global_meilleur:
                 global_meilleur = copy.deepcopy(actu_meilleur)
@@ -155,6 +159,7 @@ class Population:
         # print(self.list_trajet)
 
     def ajouter(self, trajet):
+        trajet.calc_longueur()
         self.list_trajet.append(trajet)
 
     def meilleur(self):
