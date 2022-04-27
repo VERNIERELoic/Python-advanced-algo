@@ -16,38 +16,40 @@ class PVC_Genetique:
         self.nbr_generation = nbr_generation
         self.elitisme = True
         self.gui = PVC_Genetique_GUI(self.list_villes)
-        self.mut_proba = 0.80 #j'ai augmenté la probalilité de mutation car meilleurs resultats
+        self.mut_proba = 0.80  # j'ai augmenté la probalilité de mutation car meilleurs resultats
 
-
+    # Si des doublons, on passe la list en set qui supprime automatiquement les doublons
+    # On test si la ville est presente en bouclant sur l'enfant puis on ajoute a la list des villes manquantes
+    # enfant prend alors une nouvelle list de type Trajet (enfant + villes manquantes)
     def croiser(self, parent1, parent2):
         villes1 = parent1.villes
         villes2 = parent2.villes
-        half = len(villes1)//2
-        enfant = Trajet(villes1[:half] + villes2[half:])
+        moitier = len(villes1)//2
+        enfant = Trajet(villes1[:moitier] + villes2[moitier:])
         if not enfant.est_valide():
             enfant.villes = set(enfant.villes)
             villes_manquantes = []
             for ville in self.list_villes:
-                if ville.nom not in [loop_city.nom for loop_city in enfant.villes]:
+                if ville.nom not in [boucle_ville.nom for boucle_ville in enfant.villes]:
                     villes_manquantes.append(ville)
             enfant = Trajet(list(enfant.villes) + villes_manquantes)
-        enfant.calc_longueur()
+        enfant.calc_longueur() #On pense a mettre a jour la longueur
         return enfant
 
     # Mutation : on prend un item a un index aleatoire, on le pop et insert a la fin
     def muter(self, trajet):
         mutation = trajet.villes.pop(rand.randint(0, len(self.list_villes)-2))
         trajet.villes.append(mutation)
-        trajet.calc_longueur()
+        trajet.calc_longueur() #On pense a mettre a jour la longueur
         return trajet
 
     def selectionner(self, population):
         # Utilisation des operateur magique poour comparer les objects (voir classe Trajet)
-        #On selection les 10 meilleurs
+        # On selection les 10 meilleurs
         return sorted(population.list_trajet[::])[::10]
 
-    #Si le rand generé est < à la proba, alors on mute sinon on test si la selection esy differente
-    #de la selection + 1 et si oui alors on croise les population
+    # Si le rand generé est < à la proba, alors on mute sinon on test si la selection esy differente
+    # de la selection + 1 et si oui alors on croise les population
     def evoluer(self, population):
         selection = self.selectionner(population)
         selection_cp = selection.copy()
@@ -64,9 +66,11 @@ class PVC_Genetique:
         return population
 
     def executer(self, afficher):
-        population = Population() 
+        population = Population()
         population.initialiser(self.taille_population, self.list_villes)
-        global_meilleur = copy.deepcopy(population.meilleur()) #insère dans l'objet composé des copies des objets trouvés dans l'objet original.
+        # insère dans l'objet composé des copies des objets trouvés dans l'objet original.
+        global_meilleur = copy.deepcopy(population.meilleur())
+        # Boucle autant de fois que de generation...
         for i in range(self.nbr_generation):
             population = self.evoluer(population)
             print(population.meilleur().longueur, global_meilleur.longueur)
@@ -119,7 +123,7 @@ class Trajet:
         if list_ville is not None:
             self.villes = list_ville
             self.trajet = list_ville.copy()
-            rand.shuffle(self.trajet)
+            rand.shuffle(self.trajet)  # Reorganise l'ordre des items
 
     def calc_longueur(self):
         self.longueur = 0
@@ -127,6 +131,7 @@ class Trajet:
             print(self.villes[i].distance_vers(self.villes[i+1]))
             self.longueur += self.villes[i].distance_vers(self.villes[i+1])
 
+    # test si ville present + de 1 fois
     def est_valide(self):
         for elem in self.villes:
             if self.villes.count(elem) > 1:
@@ -136,7 +141,8 @@ class Trajet:
     def __str__(self):
         return "Trajet:" + str([str(v) for v in self.trajet])
 
-    # Utilisation des operateurs magique pour le selectionner
+    # Utilisation des operateurs magique pour le selectionner et pourvoir comparer les objects entre eux
+    # equal, lower than, greater than.
     def __lt__(self, other):
         return self.longueur < other.longueur
 
@@ -167,6 +173,7 @@ class Population:
         for i in range(len(self.list_trajet)):
             if self.list_trajet[i].longueur < min.longueur:
                 min = self.list_trajet[i]
+                # print(min)
         return min
 
     def __str__(self):
